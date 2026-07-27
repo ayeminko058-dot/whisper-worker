@@ -1,42 +1,43 @@
 export default {
   async fetch(request, env) {
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    };
-
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
     }
 
     try {
       const formData = await request.formData();
-      const audioFile = formData.get("file");
-
-      if (!audioFile) {
-        return new Response(JSON.stringify({ error: "No audio file uploaded" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      const file = formData.get("file");
+      
+      if (!file) {
+        return new Response(JSON.stringify({ error: "No file uploaded" }), { status: 400 });
       }
 
-      const arrayBuffer = await audioFile.arrayBuffer();
+      const arrayBuffer = await file.arrayBuffer();
       const audioUint8 = new Uint8Array(arrayBuffer);
 
-      // Cloudflare Workers AI (Whisper Model)
-      const aiResponse = await env.AI.run("@cf/openai/whisper", {
+      // Whisper AI ဆီကနေ Timestamps (vtt/segments) ပါအောင် တောင်းယူခြင်း
+      const response = await env.AI.run("@cf/openai/whisper", {
         audio: [...audioUint8],
       });
 
-      return new Response(JSON.stringify(aiResponse), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Log ကြည့်လို့ရအောင် ထုတ်ပြခိုင်းခြင်း
+      console.log("Whisper AI Output:", JSON.stringify(response));
+
+      return new Response(JSON.stringify(response), {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
       });
-    } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    } catch (e) {
+      console.error("Error:", e.message);
+      return new Response(JSON.stringify({ error: e.message }), { status: 500 });
     }
   },
 };
