@@ -1,6 +1,5 @@
 export default {
   async fetch(request, env) {
-    // CORS headers Handling
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
@@ -12,7 +11,6 @@ export default {
     }
 
     try {
-      // Audio Buffer ကို Direct ဖတ်ခြင်း
       const arrayBuffer = await request.arrayBuffer();
       if (!arrayBuffer || arrayBuffer.byteLength === 0) {
         return new Response(JSON.stringify({ error: "No audio data received" }), { status: 400 });
@@ -20,12 +18,14 @@ export default {
 
       const audioUint8 = new Uint8Array(arrayBuffer);
 
-      // Whisper AI Config - မြန်မာဘာသာ (my) အတွက် Parameter သေချာ ထည့်သွင်းခြင်း
-      const response = await env.AI.run("@cf/openai/whisper", {
+      // Model ကို whisper-large-v3-turbo သို့ ပြောင်းလဲအသုံးပြုခြင်း
+      const response = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
         audio: [...audioUint8],
         task: "transcribe",
-        language: "my" // Myanmar language code သတ်မှတ်ပေးခြင်း (သို့မဟုတ် auto အစား transcribe တိုက်ရိုက်လုပ်ခိုင်းခြင်း)
+        language: "my"
       });
+
+      console.log("WHISPER_V3_TURBO_OUTPUT:", JSON.stringify(response));
 
       return new Response(JSON.stringify(response), {
         headers: {
@@ -34,6 +34,7 @@ export default {
         },
       });
     } catch (e) {
+      console.error("WHISPER_ERROR:", e.message);
       return new Response(JSON.stringify({ error: e.message }), { status: 500 });
     }
   },
