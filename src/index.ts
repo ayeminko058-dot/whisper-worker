@@ -8,6 +8,17 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -22,16 +33,12 @@ export default {
         let audioBuffer: ArrayBuffer;
 
         if (contentType.includes("multipart/form-data")) {
-          // App is sending FormData with a file field
           const form = await request.formData();
-
-          // Try common field names in order
           let file =
             (form.get("audio") as File | null) ||
             (form.get("file") as File | null) ||
             (form.get("audioFile") as File | null);
 
-          // Fallback: grab the first File-like value in the form
           if (!file) {
             for (const value of form.values()) {
               if (value instanceof File) {
@@ -50,7 +57,6 @@ export default {
 
           audioBuffer = await file.arrayBuffer();
         } else {
-          // Raw binary body fallback
           audioBuffer = await request.arrayBuffer();
         }
 
@@ -61,8 +67,10 @@ export default {
           );
         }
 
+        const base64Audio = arrayBufferToBase64(audioBuffer);
+
         const result: any = await env.AI.run("@cf/openai/whisper-large-v3-turbo", {
-          audio: [...new Uint8Array(audioBuffer)],
+          audio: base64Audio,
           language: "my",
           task: "transcribe",
           vad_filter: true,
